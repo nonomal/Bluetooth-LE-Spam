@@ -1,30 +1,42 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("androidx.navigation.safeargs")
-    id("kotlin-kapt")
+    alias(libs.plugins.agp.app)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.compose)
 }
 
 val app_name = "Bluetooth LE Spam"
 
 android {
     namespace = "de.simon.dankelmann.bluetoothlespam"
-    compileSdk = 34
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "de.simon.dankelmann.bluetoothlespam"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.8"
-
+        targetSdk = compileSdk
+        versionCode = 3
+        versionName = "1.0.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.jks")
+            storePassword = System.getenv("STORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
+        configureEach {
+            val variant = if (File("release.jks").exists()) "release" else "debug"
+            signingConfig = signingConfigs[variant]
+        }
         release {
             resValue("string", "app_name", app_name)
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -35,64 +47,103 @@ android {
             applicationIdSuffix = ".debug"
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+
     buildFeatures {
-        viewBinding = true
+        compose = true
+        resValues = true
+    }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
+    sourceSets {
+        // Room schema JSON (ksp room.schemaLocation above) — MigrationTestHelper loads
+        // expected/target schemas from here to build + validate migration test databases.
+        // Robolectric's unit-test config points at the "debug" variant's merged assets (not a
+        // test-specific assets dir), so this has to live on the debug build type, not
+        // sourceSets.test — scoped to debug only so schemas/ never ships in a release APK.
+        getByName("debug").assets.srcDirs("$projectDir/schemas")
+        getByName("androidTest").assets.srcDirs("$projectDir/schemas")
     }
 }
 
 
+ksp {
+    // Ground truth for hand-written Migration SQL + lets MigrationTestHelper validate against
+    // the real expected schema instead of a hand-rolled one.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
-    implementation("com.airbnb.android:lottie:6.1.0")
-    implementation("androidx.core:core-ktx:1.9.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.10.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.6")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.6")
-    implementation("androidx.preference:preference:1.2.1")
-    implementation("androidx.legacy:legacy-support-v4:1.0.0")
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    implementation("androidx.preference:preference-ktx:1.2.0")
+    implementation(libs.airbnb.lottie)
+    implementation(libs.airbnb.lottie.compose)
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.9")
+    implementation(libs.core.ktx)
+    implementation(libs.preference.ktx)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.kotlinx.coroutines)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.lifecycle.livedata.ktx)
+    implementation(libs.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.documentfile)
+    implementation(libs.google.material)
 
-    val room_version = "2.6.0"
-    implementation("androidx.room:room-runtime:$room_version")
-    annotationProcessor("androidx.room:room-compiler:$room_version")
-
-    // To use Kotlin annotation processing tool (kapt)
-    kapt("androidx.room:room-compiler:$room_version")
+    implementation(libs.room.runtime)
+    annotationProcessor(libs.room.compiler)
 
     // To use Kotlin Symbol Processing (KSP)
-    //ksp("androidx.room:room-compiler:$room_version")
+    ksp(libs.room.compiler)
 
     // optional - Kotlin Extensions and Coroutines support for Room
-    //implementation("androidx.room:room-ktx:$room_version")
+    //implementation(libs.room.ktx)
 
     // optional - RxJava2 support for Room
-    //implementation("androidx.room:room-rxjava2:$room_version")
+    //implementation(libs.room.rxjava2)
 
     // optional - RxJava3 support for Room
-    implementation("androidx.room:room-rxjava3:$room_version")
+    //implementation(libs.room.rxjava3)
 
     // optional - Guava support for Room, including Optional and ListenableFuture
-    //implementation("androidx.room:room-guava:$room_version")
-
-    // optional - Test helpers
-    //testImplementation("androidx.room:room-testing:$room_version")
+    //implementation(libs.room.guava)
 
     // optional - Paging 3 Integration
-    //implementation("androidx.room:room-paging:$room_version")
+    //implementation(libs.room.paging)
 
+    // Compose
+    implementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.runtime.livedata)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // Blur (floating nav bar backdrop only, see plan §4) + dynamic-color-consistent static palette
+    implementation(libs.haze)
+    implementation(libs.haze.materials)
+    implementation(libs.material.kolor)
+
+    // Test infra (T0)
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.room.testing)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.room.testing)
 }

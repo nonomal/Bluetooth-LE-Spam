@@ -2,12 +2,6 @@ name: Build
 
 on:
   push:
-    paths:
-      - '.github/workflows/build.yml'
-      - 'app/**'
-      - 'gradle/**'
-      - '*.gradle.*'
-      - '*.properties'
   pull_request:
   workflow_dispatch:
 
@@ -24,27 +18,34 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: 21
 
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches/
-            ~/.gradle/wrapper/
-            ./.gradle/
-          key: ${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Build with Gradle
+      - name: Set environments
         run: |
-          ./gradlew assemble --no-daemon
           {
-            echo "version=v$(grep versionName app/build.gradle.kts | awk '{print $3}' | tr -d \")"
+            echo "version=v$(grep -oP 'versionName\s*=\s*\"\K[^\"]+' app/build.gradle.kts)"
             echo "commit=$(echo ${{ github.sha }} | cut -c-7)"
-          } >> "$GITHUB_ENV"
+            echo "repo=$(echo ${GITHUB_REPOSITORY#$GITHUB_REPOSITORY_OWNER/})"
+          } >> $GITHUB_ENV
 
-      - name: Upload APK
+      - name: Test
+        run: ./gradlew test --no-daemon --stacktrace
+
+      - name: Build
+        run: |
+          if [ "${{ secrets.STORE_FILE }}" != "" ]; then
+            echo "${{ secrets.STORE_FILE }}" | base64 -d > app/release.jks
+            export STORE_PASSWORD="${{ secrets.STORE_PASSWORD }}"
+            export KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
+            export KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
+          fi
+          ./gradlew assemble --no-daemon --stacktrace --warning-mode=all
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Bluetooth-LE-Spam(${{ env.version }}@${{ env.commit }})
+          name: ${{ env.repo }}(${{ env.version }}@${{ env.commit }})
           path: app/build/outputs/apk/**/app-*.apk

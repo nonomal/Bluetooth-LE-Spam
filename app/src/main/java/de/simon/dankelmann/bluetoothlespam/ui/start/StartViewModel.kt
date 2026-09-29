@@ -5,53 +5,21 @@ import androidx.lifecycle.ViewModel
 
 class StartViewModel : ViewModel() {
 
-    var isLoading = MutableLiveData<Boolean>().apply {
-        value = false
-    }
+    val isSeeding = MutableLiveData<Boolean>(false)
 
-    var isSeeding = MutableLiveData<Boolean>().apply {
-        value = false
-    }
+    val appVersion = MutableLiveData<String>("0.0.0")
+    val androidVersion = MutableLiveData<String>(android.os.Build.VERSION.RELEASE)
+    val sdkVersion = MutableLiveData<String>(android.os.Build.VERSION.SDK_INT.toString())
 
-    var loadingMessage = MutableLiveData<String>().apply {
-        value = "Loading..."
-    }
+    val bluetoothSupport = MutableLiveData<String>("-")
 
-    var appVersion = MutableLiveData<String>().apply {
-        value = "0.0.0"
-    }
+    // null = not checked yet (rendered as the loading state on the Requirements card)
+    val allPermissionsGranted = MutableLiveData<Boolean?>(null)
 
-    var androidVersion = MutableLiveData<String>().apply {
-        value = "0"
-    }
+    val bluetoothAdapterIsReady = MutableLiveData<Boolean?>(null)
 
-    var sdkVersion = MutableLiveData<String>().apply {
-        value = "0"
-    }
+    val databaseIsReady = MutableLiveData<Boolean?>(null)
 
-    var bluetoothSupport = MutableLiveData<String>().apply {
-        value = "-"
-    }
-
-    var allPermissionsGranted = MutableLiveData<Boolean>().apply {
-        value = false
-    }
-
-    var bluetoothAdapterIsReady = MutableLiveData<Boolean>().apply {
-        value = false
-    }
-
-    var advertisementServiceIsReady = MutableLiveData<Boolean>().apply {
-        value = false
-    }
-
-    var databaseIsReady = MutableLiveData<Boolean>().apply {
-        value = false
-    }
-
-    var missingRequirements = MutableLiveData<MutableList<String>>().apply {
-        value = mutableListOf()
-    }
-
+    val missingRequirements = MutableLiveData<MutableList<String>>(mutableListOf())
 
 }
